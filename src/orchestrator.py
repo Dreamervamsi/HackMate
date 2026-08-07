@@ -1,41 +1,44 @@
 from google.genai import types
-from agents import create_agent, set_client, generate_agent_plan
+from agents import (
+        check_agent_plan_conflict, 
+        parse_conflict_response, 
+        resolve_conflicts_and_generate_plan,
+        set_client,
+        generate_agent_plan,
+        implement_tool
+)
 
 def orchestrate_agent(user_prompt, client):
     set_client(client)
     
     orchestrator_config = types.GenerateContentConfig(
         system_instruction="""
- You are an Orchestrator Agent responsible for decomposing tasks and creating specialized sub-agents.
+    You are an Orchestrator Agent responsible for decomposing tasks and coordinating sub-agents.
 
-When receiving a user request:
-1. Ask any necessary clarification questions first.
-2. Break the request into distinct, independent sub-tasks and identify dependencies between them.
-3. Define a SHARED CONTRACT for the whole job (naming conventions, file paths, export style, and interfaces). This SHARED CONTRACT must be included in every sub-agent's `system_instruction` so outputs remain compatible.
-4. For every sub-task:
-   a) invoke the `create_agent` tool to create a new agent for that task,
-   b) then invoke the `generate_agent_plan` tool with the same `agent_name` and an instruction prompt so the agent itself produces the implementation plan.
-5. Do not generate agent plans directly inside the orchestrator. The orchestrator must delegate plan creation to the agent via `generate_agent_plan`.
-6. When calling generate_agent_plan, never pass the raw task directly. Always wrap it in a prompt that explicitly asks for an implementation plan only.
-
-When invoking `create_agent`, supply:
-- `agent_name`
-- `description`
-- `system_instruction`
-
-When invoking `generate_agent_plan`, supply:
-- `agent_name`
-- `instruction_prompt` (the clean task prompt the agent should use to produce its plan)
-
-The orchestrator should aggregate the returned plans from `generate_agent_plan` and return those plans as the final result.
-""",
-        tools=[create_agent, generate_agent_plan],
+    When receiving a user request:
+    1. Ask for clarification if needed.
+    2. Break the request into independent sub-tasks and define a shared contract.
+    3. Create sub-agents with create_agent.
+    4. Ask each sub-agent for an implementation plan with generate_agent_plan.
+    5. For each plan, call check_agent_plan_conflict with:
+    - task_prompt
+    - implementation_plan
+    6. If the conflict checker reports conflicts, call resolve_conflicts_and_generate_plan with:
+    - task_prompt
+    - summary
+    - conflicts
+    7. If there are no conflicts, or after resolution, call implement_tool with:
+    - agent_name
+    - implementation_plan
+    8. Return the final implementation results.
+    """,
+        tools=[create_agent, generate_agent_plan, check_agent_plan_conflict, resolve_conflicts_and_generate_plan, implement_tool],
         temperature=0.7
     )
     print("Orchestrator config created successfully.")
 
     orchestrator_chat = client.chats.create(
-        model='gemini-3.5-flash',
+        model='gemini-2.5-flash',
         config=orchestrator_config
     )
     print("Orchestrator chat created successfully.")
@@ -71,6 +74,45 @@ The orchestrator should aggregate the returned plans from `generate_agent_plan` 
                     types.Part.from_function_response(
                         name=call.name,
                         response={"result": plan_result}
+                    )
+                )
+            elif call.name == "check_agent_plan_conflict":
+                task_prompt = call.args.get("task_prompt")
+                implementation_plan = call.args.get("implementation_plan")
+
+                result = check_agent_plan_conflict(task_prompt, implementation_plan)
+
+                tool_parts.append(
+                    types.Part.from_function_response(
+                        name=call.name,
+                        response={"result": result}
+                    )
+                )
+
+            elif call.name == "resolve_conflicts_and_generate_plan":
+                task_prompt = call.args.get("task_prompt")
+                summary = call.args.get("summary")
+                conflicts = call.args.get("conflicts")
+
+                result = resolve_conflicts_and_generate_plan(task_prompt, summary, conflicts)
+
+                tool_parts.append(
+                    types.Part.from_function_response(
+                        name=call.name,
+                        response={"result": result}
+                    )
+                )
+
+            elif call.name == "implement_tool":
+                agent_name = call.args.get("agent_name")
+                implementation_plan = call.args.get("implementation_plan")
+
+                result = implement_tool(agent_name, implementation_plan)
+
+                tool_parts.append(
+                    types.Part.from_function_response(
+                        name=call.name,
+                        response={"result": result}
                     )
                 )
         tool_content = types.Content(role="tool", parts=tool_parts)

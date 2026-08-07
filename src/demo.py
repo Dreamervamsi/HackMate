@@ -1,13 +1,14 @@
 from google import genai
 from google.genai import types
 import os
+import re
 from dotenv import load_dotenv
-from orchestrator import orchestrate_agent
-from agents import check_agent_plan_conflict
+from agents import check_agent_plan_conflict, parse_conflict_response
 
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+
 prompt  = """
     Create two HTML pages for a handmade candle website.
 
@@ -22,19 +23,7 @@ Page 2:
 """
 
 def main():
-    # orchestrator
-    res = orchestrate_agent(prompt, client)
-    # check_agent_plan_conflict(res)
-    pattern = r"(# Implementation Plan:.*)"
-
-    # re.DOTALL is to match across multiple lines
-    match = re.search(pattern, res, re.DOTALL)
+   
     
-    if match:
-        implementation_plan = match.group(1).strip()
-        check_agent_plan_conflict(prompt, implementation_plan)
-    else:
-        print("No implementation plan found in the response.")
-
 if __name__ == "__main__":
     main()
