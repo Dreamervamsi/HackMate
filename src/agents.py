@@ -1,14 +1,10 @@
-from google.genai import types, Client
+from google.genai import types
+from config import client, MODEL_NAME
 import subprocess
 import json
 
+
 active_agents = {}
-
-client = None
-
-def set_client(api_client):
-    global client
-    client = api_client
 
 """ Create agent function"""
 def create_agent(agent_name: str, description: str, system_instruction: str):
@@ -16,13 +12,16 @@ def create_agent(agent_name: str, description: str, system_instruction: str):
     if client is None:
         raise ValueError("Agent client has not been initialized.")
 
+    if agent_name in active_agents:
+        print(f"Warning: Agent '{agent_name}' already exists. Overwriting existing agent.")
+
     config = types.GenerateContentConfig(
         system_instruction=system_instruction,
         temperature=0.7
     )
-    
+
     chat = client.chats.create(
-        model='gemini-2.5-flash',
+        model=MODEL_NAME,
         config=config,
     )
     active_agents[agent_name] = chat
@@ -37,7 +36,7 @@ def generate_agent_plan(agent_name: str, instruction_prompt: str):
     if agent_name not in active_agents:
         return {"error": f"Agent '{agent_name}' does not exist."}
     print("Generating plan for agent...")
-    
+
     print(agent_name)
     chat = active_agents[agent_name]
     response = chat.send_message(instruction_prompt)
@@ -153,7 +152,7 @@ def parse_conflict_response(response):
     except Exception:
         return {"has_conflict": True, "verdict": "needs_revision", "summary": text_stripped, "conflicts": []}
 
-def resolve_conflicts_and_generate_plan(task_prompt: str, summary: str, conflicts: list):
+def conflict_resolver(task_prompt: str, summary: str, conflicts: list):
     try:
         agent_name = "conflict_resolver"
         agent_description = "Resolves plan-level conflicts and returns a consolidated, conflict-free implementation plan."
@@ -198,6 +197,8 @@ def resolve_conflicts_and_generate_plan(task_prompt: str, summary: str, conflict
 # plan implementation function
 def implement_plan(agent_name: str, implementation_plan: str):
     print("Implementing plan for agent...")
+    if agent_name not in active_agents:
+        return {"error": f"Agent '{agent_name}' does not exist."}
     chat = active_agents[agent_name]
 
     prompt = f"""
@@ -226,14 +227,29 @@ def implement_plan(agent_name: str, implementation_plan: str):
         "implementation_result": response.text
     }
 
+# code verification
 def verify_agent_code(raw_code: str):
     try:
+        # Check if Docker is available
+        docker_check = subprocess.run(
+            ["docker", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if docker_check.returncode != 0:
+            return {
+                "success": False,
+                "output": "",
+                "error": "Docker is not installed or not running. Code verification requires Docker."
+            }
+
         code_res = subprocess.run(
             ["docker", "run", "--rm", "-i", "--network", "host", "python:3.11-slim", "python"],
             input=raw_code,
             capture_output=True,
             text=True,
-            timeout=10 
+            timeout=10
         )
         return {
             "success": code_res.returncode == 0,
@@ -246,5 +262,11 @@ def verify_agent_code(raw_code: str):
             "output": "",
             "error": "Verification failed: Code execution timed out (possible infinite loop)."
         }
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "output": "",
+            "error": "Docker command not found. Please ensure Docker is installed and accessible."
+        }
     except Exception as e:
-        return {"success": False,"output": "", "error": f"Unexpected error: {e}"}
+        return {"success": False, "output": "", "error": f"Unexpected error: {e}"}

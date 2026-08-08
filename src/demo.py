@@ -1,13 +1,6 @@
-from google import genai
-from google.genai import types
-import os
-import re
 from dotenv import load_dotenv
-from agents import check_agent_plan_conflict, parse_conflict_response
-
-load_dotenv()
-
-client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+from orchestrator import orchestrate_agent
+from config import client
 
 prompt  = """
     Create two HTML pages for a handmade candle website.
@@ -23,7 +16,7 @@ Page 2:
 """
 
 def main():
-   
+   orchestrate_agent(prompt)
     
 if __name__ == "__main__":
     main()
