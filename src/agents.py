@@ -1,4 +1,5 @@
 from google.genai import types, Client
+import subprocess
 import json
 
 active_agents = {}
@@ -9,6 +10,7 @@ def set_client(api_client):
     global client
     client = api_client
 
+""" Create agent function"""
 def create_agent(agent_name: str, description: str, system_instruction: str):
     print("Creating agent...")
     if client is None:
@@ -30,6 +32,7 @@ def create_agent(agent_name: str, description: str, system_instruction: str):
         "active_agents": list(active_agents.keys())
     }
 
+# generate agent plan function
 def generate_agent_plan(agent_name: str, instruction_prompt: str):
     if agent_name not in active_agents:
         return {"error": f"Agent '{agent_name}' does not exist."}
@@ -44,6 +47,7 @@ def generate_agent_plan(agent_name: str, instruction_prompt: str):
         "plan": response.text
     }
 
+""" Conflict in implementation plan checking and resolution functions """
 def build_conflict_checker_instruction(task_prompt: str, implementation_plans: list[str]) -> str:
     return f"""
     You are a Plan Conflict Checker Agent.
@@ -124,36 +128,6 @@ def check_agent_plan_conflict(task_prompt: str, implementation_plan: str):
             "error": f"Error during conflict analysis: {e}"
         }
 
-def implement_plan(agent_name: str, implementation_plan: str):
-    print("Implementing plan for agent...")
-    chat = active_agents[agent_name]
-
-    prompt = f"""
-    You are an implementation agent.
-
-    You are provided the following implementation plan. Implement this plan.
-
-    Implementation plan:
-    {implementation_plan}
-
-    Requirements:
-    - Implement the plan by producing the code files described or modified.
-    - For each code file you produce or modify, include the filename and the full file contents.
-    - Return ONLY valid JSON with a top-level key "files" whose value is an array of objects with keys:
-    - "filename": path to the file (string)
-    - "content": full file contents (string)
-    Example:
-    [{"filename": "path/to/file.py", "content": "# file contents..."}]
-    - Do not include any extra commentary outside the JSON payload.
-
-    """
-    response = chat.send_message(prompt)
-
-    return {
-        "message": f"Plan implemented by agent '{agent_name}'.",
-        "implementation_result": response.text
-    }
-
 def parse_conflict_response(response):
     # Accept either the raw dict returned by check_agent_plan_conflict or a raw text string.
     text = ""
@@ -220,3 +194,57 @@ def resolve_conflicts_and_generate_plan(task_prompt: str, summary: str, conflict
             return {"success": False, "error": "resolver returned non-JSON", "raw": raw}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+# plan implementation function
+def implement_plan(agent_name: str, implementation_plan: str):
+    print("Implementing plan for agent...")
+    chat = active_agents[agent_name]
+
+    prompt = f"""
+    You are an implementation agent.
+
+    You are provided the following implementation plan. Implement this plan.
+
+    Implementation plan:
+    {implementation_plan}
+
+    Requirements:
+    - Implement the plan by producing the code files described or modified.
+    - For each code file you produce or modify, include the filename and the full file contents.
+    - Return ONLY valid JSON with a top-level key "files" whose value is an array of objects with keys:
+    - "filename": path to the file (string)
+    - "content": full file contents (string)
+    Example:
+    [{"filename": "path/to/file.py", "content": "# file contents..."}]
+    - Do not include any extra commentary outside the JSON payload.
+
+    """
+    response = chat.send_message(prompt)
+
+    return {
+        "message": f"Plan implemented by agent '{agent_name}'.",
+        "implementation_result": response.text
+    }
+
+def verify_agent_code(raw_code: str):
+    try:
+        code_res = subprocess.run(
+            ["docker", "run", "--rm", "-i", "--network", "host", "python:3.11-slim", "python"],
+            input=raw_code,
+            capture_output=True,
+            text=True,
+            timeout=10 
+        )
+        return {
+            "success": code_res.returncode == 0,
+            "output": code_res.stdout,
+            "error": code_res.stderr
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "output": "",
+            "error": "Verification failed: Code execution timed out (possible infinite loop)."
+        }
+    except Exception as e:
+        return {"success": False,"output": "", "error": f"Unexpected error: {e}"}
