@@ -64,6 +64,7 @@ HackMate/
 │   ├── config.py          # Configuration and API client initialization
 │   └── demo.py            # Demo script showing example usage
 ├── requirements.txt       # Python dependencies
+├── .env.example           # Example environment variables file
 ├── .env                  # Environment variables (API keys, model config)
 ├── .gitignore           # Git ignore rules
 └── README.md            # This file
