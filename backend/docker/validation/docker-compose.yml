@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  python-validator:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    image: hackmate/python-validator:latest
+    container_name: hackmate-python-validator
+    networks:
+      - validation-network
+    # Resource limits for safety
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+networks:
+  validation-network:
+    driver: bridge
+    internal: true  # Isolated network for security

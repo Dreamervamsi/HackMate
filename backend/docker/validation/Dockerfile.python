@@ -1,0 +1,28 @@
+# Python Validation Environment Dockerfile
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /workspace
+
+# Install common Python testing and validation tools
+RUN pip install --no-cache-dir \
+    pytest \
+    pytest-cov \
+    pytest-timeout \
+    flake8 \
+    mypy \
+    black \
+    isort \
+    pylint \
+    bandit \
+    safety
+
+# Create a non-root user for security
+RUN useradd -m -u 1000 validator && \
+    chown -R validator:validator /workspace
+
+# Switch to non-root user
+USER validator
+
+# Default command
+CMD ["python", "--version"]
