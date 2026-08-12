@@ -126,3 +126,51 @@ class ConflictAnalysisResponse(BaseModel):
     verdict: str = Field(..., description="Overall verdict (pass/needs_revision)")
     summary: str = Field(..., description="Summary of the analysis")
     conflicts: List[ConflictInfo] = Field(default_factory=list, description="List of detected conflicts")
+
+
+class ValidationRequest(BaseModel):
+    """Request model for code validation"""
+    code: str = Field(..., description="Code to validate")
+    language: str = Field(default="python", description="Programming language")
+    max_attempts: int = Field(default=2, description="Maximum auto-fix attempts")
+
+
+class ValidationResponse(BaseModel):
+    """Response model for code validation"""
+    success: bool = Field(..., description="Whether validation passed")
+    validated_code: Optional[str] = Field(None, description="Validated/fixed code")
+    original_code: Optional[str] = Field(None, description="Original code if validation failed")
+    last_attempt_code: Optional[str] = Field(None, description="Last attempted code")
+    test_results: Optional[str] = Field(None, description="Test execution results")
+    error: Optional[str] = Field(None, description="Error message if validation failed")
+    attempts: int = Field(..., description="Number of validation attempts")
+    message: str = Field(..., description="Validation status message")
+
+
+class BugResolutionRequest(BaseModel):
+    """Request model for bug resolution"""
+    code: str = Field(..., description="Code with bugs")
+    test_results: str = Field(..., description="Test results showing errors")
+
+
+class BugResolutionResponse(BaseModel):
+    """Response model for bug resolution"""
+    success: bool = Field(..., description="Whether bug resolution succeeded")
+    fixed_code: Optional[str] = Field(None, description="Fixed code")
+    error: Optional[str] = Field(None, description="Error message if resolution failed")
+    message: str = Field(..., description="Resolution status message")
+
+
+class TestGenerationRequest(BaseModel):
+    """Request model for test generation"""
+    code: str = Field(..., description="Code to generate tests for")
+    language: str = Field(default="python", description="Programming language")
+
+
+class TestGenerationResponse(BaseModel):
+    """Response model for test generation"""
+    success: bool = Field(..., description="Whether test generation succeeded")
+    test_code: Optional[str] = Field(None, description="Generated test code")
+    language: str = Field(..., description="Language of generated tests")
+    error: Optional[str] = Field(None, description="Error message if generation failed")
+    message: str = Field(..., description="Generation status message")
