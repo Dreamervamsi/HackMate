@@ -472,17 +472,7 @@ def validate_python_code(code: str, test_code: str = None):
 
 """ Validation Workflow with Auto-Fix Loop """
 def validate_code_with_autofix(code: str, language: str = "python", max_attempts: int = 2):
-    """
-    Validates code with automatic bug fixing loop.
     
-    Args:
-        code: The code to validate
-        language: Programming language (default: python)
-        max_attempts: Maximum number of auto-fix attempts (default: 2)
-    
-    Returns:
-        Dict with validation results and fixed code if successful
-    """
     print(f"Starting validation workflow for {language} code...")
     
     current_code = code
@@ -492,7 +482,6 @@ def validate_code_with_autofix(code: str, language: str = "python", max_attempts
         attempt += 1
         print(f"Validation attempt {attempt}/{max_attempts + 1}")
         
-        # Step 1: Generate tests if not provided
         test_result = generate_tests(current_code, language)
         if not test_result.get("success"):
             print("Failed to generate tests, proceeding with basic validation")
@@ -500,7 +489,6 @@ def validate_code_with_autofix(code: str, language: str = "python", max_attempts
         else:
             test_code = test_result.get("test_code")
         
-        # Step 2: Validate code in Docker
         if language == "python":
             validation_result = validate_python_code(current_code, test_code)
         else:
