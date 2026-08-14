@@ -23,7 +23,7 @@ export const useChat = () => {
     localStorage.setItem('hackmate_messages', JSON.stringify(messages));
   }, [messages]);
 
-  const sendMessage = useCallback(async (userPrompt) => {
+  const sendMessage = useCallback(async (userPrompt, githubContext = null) => {
     setIsLoading(true);
     setError(null);
 
@@ -33,13 +33,17 @@ export const useChat = () => {
       role: 'user',
       content: userPrompt,
       timestamp: new Date().toISOString(),
+      metadata: githubContext ? { githubContext } : undefined,
     };
 
     setMessages((prev) => [...prev, userMessage]);
 
     try {
       // Send prompt to backend
-      const response = await orchestratorAPI.sendPrompt(userPrompt);
+      const response = await orchestratorAPI.sendPrompt(
+        userPrompt, 
+        githubContext ? { github: githubContext } : {}
+      );
 
       // Add AI response to the chat
       const aiMessage = {
@@ -50,6 +54,10 @@ export const useChat = () => {
         metadata: {
           executionTime: response.execution_time,
           activeAgents: response.active_agents,
+          ...(response.metadata?.githubOperation && {
+            githubOperation: response.metadata.githubOperation,
+            branchUrl: response.metadata.branchUrl,
+          }),
         },
       };
 
@@ -88,7 +96,7 @@ export const useChat = () => {
         });
         
         // Retry the last user message
-        sendMessage(lastUserMessage.content);
+        sendMessage(lastUserMessage.content, lastUserMessage.metadata?.githubContext);
       }
     }
   }, [messages, sendMessage]);

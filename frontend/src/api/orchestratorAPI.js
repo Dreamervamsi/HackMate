@@ -107,6 +107,48 @@ export const orchestratorAPI = {
       );
     }
   },
+
+  // GitHub Operations
+  // Create GitHub branch
+  createGitHubBranch: async (repoUrl, branchName, baseBranch = null, githubToken = null) => {
+    try {
+      const response = await apiClient.post('/github/branch', {
+        repo_url: repoUrl,
+        branch_name: branchName,
+        base_branch: baseBranch,
+        github_token: githubToken,
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.detail || 
+        error.response?.data?.error ||
+        error.message || 
+        'Failed to create GitHub branch'
+      );
+    }
+  },
+
+  // Commit and push to GitHub
+  commitToGitHub: async (repoUrl, branchName, files, commitMessage, githubToken = null) => {
+    try {
+      const response = await apiClient.post('/github/commit', {
+        repo_url: repoUrl,
+        branch_name: branchName,
+        files: files,
+        commit_message: commitMessage,
+        github_token: githubToken,
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.detail || 
+        error.response?.data?.error ||
+        error.message || 
+        'Failed to commit to GitHub'
+      );
+    }
+  },
 };
 
 export default apiClient;
