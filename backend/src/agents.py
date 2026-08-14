@@ -1,7 +1,9 @@
 from google.genai import types
-from config import client, MODEL_NAME
+from config import client, MODEL_NAME, GITHUB_TOKEN, GITHUB_DEFAULT_BRANCH
 import subprocess
 import json
+import re
+from github import Github, GithubException
 
 
 active_agents = {}
@@ -537,3 +539,201 @@ def validate_code_with_autofix(code: str, language: str = "python", max_attempts
         "attempts": attempt,
         "message": f"Validation failed after {attempt} attempts"
     }
+
+""" GitHub Agent Functions """
+def parse_github_repo_url(repo_url: str):
+    """Parse GitHub repository URL to extract owner and repo name"""
+    # Handle various GitHub URL formats
+    patterns = [
+        r'github\.com/([^/]+)/([^/]+?)(\.git)?$',  # https://github.com/owner/repo or https://github.com/owner/repo.git
+        r'github\.com/([^/]+)/([^/]+)',             # github.com/owner/repo
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, repo_url)
+        if match:
+            owner = match.group(1)
+            repo_name = match.group(2).replace('.git', '')
+            return owner, repo_name
+    
+    raise ValueError(f"Invalid GitHub repository URL: {repo_url}")
+
+def create_github_branch(repo_url: str, branch_name: str, base_branch: str = None, github_token: str = None):
+    """Create a new branch in a GitHub repository"""
+    try:
+        # Use provided token or fall back to config
+        token = github_token or GITHUB_TOKEN
+        if not token:
+            return {
+                "success": False,
+                "branch_name": branch_name,
+                "error": "GitHub token not provided. Please set GITHUB_TOKEN in config or provide it in the request.",
+                "message": "Authentication failed"
+            }
+        
+        # Parse repository URL
+        owner, repo_name = parse_github_repo_url(repo_url)
+        
+        # Initialize GitHub client
+        g = Github(token)
+        repo = g.get_repo(f"{owner}/{repo_name}")
+        
+        # Get base branch (default to main or configured default)
+        base_branch_name = base_branch or GITHUB_DEFAULT_BRANCH or 'main'
+        
+        # Get the base branch
+        try:
+            base_branch = repo.get_branch(base_branch_name)
+        except GithubException as e:
+            return {
+                "success": False,
+                "branch_name": branch_name,
+                "error": f"Base branch '{base_branch_name}' not found: {str(e)}",
+                "message": "Base branch not found"
+            }
+        
+        # Create new branch
+        repo.create_git_ref(
+            ref=f"refs/heads/{branch_name}",
+            sha=base_branch.commit.sha
+        )
+        
+        branch_url = f"https://github.com/{owner}/{repo_name}/tree/{branch_name}"
+        
+        print(f"Successfully created branch '{branch_name}' in {owner}/{repo_name}")
+        
+        return {
+            "success": True,
+            "branch_name": branch_name,
+            "branch_url": branch_url,
+            "message": f"Branch '{branch_name}' created successfully"
+        }
+        
+    except ValueError as e:
+        return {
+            "success": False,
+            "branch_name": branch_name,
+            "error": str(e),
+            "message": "Invalid repository URL"
+        }
+    except GithubException as e:
+        return {
+            "success": False,
+            "branch_name": branch_name,
+            "error": f"GitHub API error: {str(e)}",
+            "message": "GitHub operation failed"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "branch_name": branch_name,
+            "error": f"Unexpected error: {str(e)}",
+            "message": "Operation failed"
+        }
+
+def commit_and_push_to_github(repo_url: str, branch_name: str, files: dict, commit_message: str, github_token: str = None):
+    """Commit and push files to a GitHub repository branch"""
+    try:
+        # Use provided token or fall back to config
+        token = github_token or GITHUB_TOKEN
+        if not token:
+            return {
+                "success": False,
+                "branch_name": branch_name,
+                "error": "GitHub token not provided. Please set GITHUB_TOKEN in config or provide it in the request.",
+                "message": "Authentication failed"
+            }
+        
+        # Parse repository URL
+        owner, repo_name = parse_github_repo_url(repo_url)
+        
+        # Initialize GitHub client
+        g = Github(token)
+        repo = g.get_repo(f"{owner}/{repo_name}")
+        
+        # Get the branch
+        try:
+            branch = repo.get_branch(branch_name)
+        except GithubException as e:
+            return {
+                "success": False,
+                "branch_name": branch_name,
+                "error": f"Branch '{branch_name}' not found: {str(e)}",
+                "message": "Branch not found"
+            }
+        
+        # Create or update files
+        files_committed = []
+        for file_path, file_content in files.items():
+            try:
+                # Try to get the file to see if it exists
+                try:
+                    file = repo.get_contents(file_path, ref=branch_name)
+                    # Update existing file
+                    repo.update_file(
+                        path=file_path,
+                        message=commit_message,
+                        content=file_content,
+                        sha=file.sha,
+                        branch=branch_name
+                    )
+                except GithubException:
+                    # File doesn't exist, create it
+                    repo.create_file(
+                        path=file_path,
+                        message=commit_message,
+                        content=file_content,
+                        branch=branch_name
+                    )
+                
+                files_committed.append(file_path)
+                print(f"Successfully committed {file_path}")
+                
+            except Exception as e:
+                print(f"Failed to commit {file_path}: {str(e)}")
+                continue
+        
+        if not files_committed:
+            return {
+                "success": False,
+                "branch_name": branch_name,
+                "error": "No files were committed",
+                "message": "Commit operation failed"
+            }
+        
+        # Get the latest commit SHA
+        branch = repo.get_branch(branch_name)
+        commit_sha = branch.commit.sha
+        branch_url = f"https://github.com/{owner}/{repo_name}/tree/{branch_name}"
+        
+        print(f"Successfully committed {len(files_committed)} files to branch '{branch_name}'")
+        
+        return {
+            "success": True,
+            "commit_sha": commit_sha,
+            "branch_url": branch_url,
+            "files_committed": files_committed,
+            "message": f"Successfully committed {len(files_committed)} files"
+        }
+        
+    except ValueError as e:
+        return {
+            "success": False,
+            "branch_name": branch_name,
+            "error": str(e),
+            "message": "Invalid repository URL"
+        }
+    except GithubException as e:
+        return {
+            "success": False,
+            "branch_name": branch_name,
+            "error": f"GitHub API error: {str(e)}",
+            "message": "GitHub operation failed"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "branch_name": branch_name,
+            "error": f"Unexpected error: {str(e)}",
+            "message": "Operation failed"
+        }

@@ -12,12 +12,16 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from orchestrator import orchestrate_agent
-from agents import active_agents
+from agents import active_agents, create_github_branch, commit_and_push_to_github
 from models import (
     OrchestrationRequest,
     OrchestrationResponse,
     HealthResponse,
-    AgentListResponse
+    AgentListResponse,
+    GitHubBranchRequest,
+    GitHubBranchResponse,
+    GitHubCommitRequest,
+    GitHubCommitResponse
 )
 from middleware import (
     ErrorHandlingMiddleware,
@@ -98,6 +102,8 @@ async def root():
             "health": "/health",
             "orchestrate": "/orchestrate",
             "agents": "/agents",
+            "github_branch": "/github/branch",
+            "github_commit": "/github/commit",
             "docs": "/docs"
         }
     }
@@ -177,6 +183,63 @@ async def orchestrate_endpoint(request: OrchestrationRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Orchestration failed: {str(e)}"
+        )
+
+
+@app.post("/github/branch", response_model=GitHubBranchResponse)
+async def create_github_branch_endpoint(request: GitHubBranchRequest):
+    """Create a new branch in a GitHub repository"""
+    try:
+        logger.info(f"Creating GitHub branch '{request.branch_name}' in {request.repo_url}")
+        
+        result = create_github_branch(
+            repo_url=request.repo_url,
+            branch_name=request.branch_name,
+            base_branch=request.base_branch,
+            github_token=request.github_token
+        )
+        
+        if result.get("success"):
+            logger.info(f"Successfully created branch '{request.branch_name}'")
+        else:
+            logger.warning(f"Failed to create branch: {result.get('error')}")
+        
+        return GitHubBranchResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"GitHub branch creation error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"GitHub branch creation failed: {str(e)}"
+        )
+
+
+@app.post("/github/commit", response_model=GitHubCommitResponse)
+async def commit_to_github_endpoint(request: GitHubCommitRequest):
+    """Commit and push files to a GitHub repository branch"""
+    try:
+        logger.info(f"Committing {len(request.files)} files to '{request.branch_name}' in {request.repo_url}")
+        
+        result = commit_and_push_to_github(
+            repo_url=request.repo_url,
+            branch_name=request.branch_name,
+            files=request.files,
+            commit_message=request.commit_message,
+            github_token=request.github_token
+        )
+        
+        if result.get("success"):
+            logger.info(f"Successfully committed {len(result.get('files_committed', []))} files")
+        else:
+            logger.warning(f"Failed to commit files: {result.get('error')}")
+        
+        return GitHubCommitResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"GitHub commit error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"GitHub commit failed: {str(e)}"
         )
 
 

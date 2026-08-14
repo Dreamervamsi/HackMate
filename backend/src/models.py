@@ -174,3 +174,39 @@ class TestGenerationResponse(BaseModel):
     language: str = Field(..., description="Language of generated tests")
     error: Optional[str] = Field(None, description="Error message if generation failed")
     message: str = Field(..., description="Generation status message")
+
+
+class GitHubBranchRequest(BaseModel):
+    """Request model for creating a GitHub branch"""
+    repo_url: str = Field(..., description="GitHub repository URL (e.g., https://github.com/owner/repo)")
+    branch_name: str = Field(..., description="Name for the new branch")
+    base_branch: Optional[str] = Field(None, description="Base branch to create from (default: main)")
+    github_token: Optional[str] = Field(None, description="GitHub personal access token (optional if set in config)")
+
+
+class GitHubCommitRequest(BaseModel):
+    """Request model for committing and pushing code to GitHub"""
+    repo_url: str = Field(..., description="GitHub repository URL")
+    branch_name: str = Field(..., description="Branch to commit to")
+    files: Dict[str, str] = Field(..., description="Dictionary of file paths and their contents")
+    commit_message: str = Field(..., description="Commit message")
+    github_token: Optional[str] = Field(None, description="GitHub personal access token (optional if set in config)")
+
+
+class GitHubBranchResponse(BaseModel):
+    """Response model for GitHub branch creation"""
+    success: bool = Field(..., description="Whether branch creation succeeded")
+    branch_name: str = Field(..., description="Name of the created branch")
+    branch_url: Optional[str] = Field(None, description="URL of the created branch")
+    error: Optional[str] = Field(None, description="Error message if creation failed")
+    message: str = Field(..., description="Operation status message")
+
+
+class GitHubCommitResponse(BaseModel):
+    """Response model for GitHub commit operations"""
+    success: bool = Field(..., description="Whether commit/push succeeded")
+    commit_sha: Optional[str] = Field(None, description="SHA of the created commit")
+    branch_url: Optional[str] = Field(None, description="URL of the branch")
+    files_committed: List[str] = Field(default_factory=list, description="List of committed file paths")
+    error: Optional[str] = Field(None, description="Error message if operation failed")
+    message: str = Field(..., description="Operation status message")

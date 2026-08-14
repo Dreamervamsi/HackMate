@@ -2,11 +2,13 @@ from google.genai import types
 from config import client, MODEL_NAME
 from agents import (
         create_agent,
-        conflict_checker,
         generate_agent_plan,
         implement_plan,
-        validate_code_with_autofix
+        validate_code_with_autofix,
+        create_github_branch,
+        commit_and_push_to_github
 )
+from tool_calls import conflict_checker
 
 def orchestrate_agent(user_prompt):
     orchestrator_config = types.GenerateContentConfig(
@@ -26,9 +28,10 @@ def orchestrate_agent(user_prompt):
                 - code: the implemented code
                 - language: the programming language (default: python)
                 This will run tests in Docker containers and automatically fix bugs up to 2 times.
-                8. Return the final validated implementation results.
+                8. If the user wants to push code to GitHub, use create_github_branch to create a new branch and commit_and_push_to_github to push the code.
+                9. Return the final validated implementation results.
                 """,
-        tools=[create_agent, generate_agent_plan, conflict_checker, implement_plan, validate_code_with_autofix],
+        tools=[create_agent, generate_agent_plan, conflict_checker, implement_plan, validate_code_with_autofix, create_github_branch, commit_and_push_to_github],
         temperature=0.7
     )
     print("Orchestrator config created successfully.")
@@ -110,6 +113,37 @@ def orchestrate_agent(user_prompt):
                 max_attempts = call.args.get("max_attempts", 2)
 
                 result = validate_code_with_autofix(code, language, max_attempts)
+
+                tool_parts.append(
+                    types.Part.from_function_response(
+                        name=call.name,
+                        response={"result": result}
+                    )
+                )
+
+            elif call.name == "create_github_branch":
+                repo_url = call.args.get("repo_url")
+                branch_name = call.args.get("branch_name")
+                base_branch = call.args.get("base_branch")
+                github_token = call.args.get("github_token")
+
+                result = create_github_branch(repo_url, branch_name, base_branch, github_token)
+
+                tool_parts.append(
+                    types.Part.from_function_response(
+                        name=call.name,
+                        response={"result": result}
+                    )
+                )
+
+            elif call.name == "commit_and_push_to_github":
+                repo_url = call.args.get("repo_url")
+                branch_name = call.args.get("branch_name")
+                files = call.args.get("files")
+                commit_message = call.args.get("commit_message")
+                github_token = call.args.get("github_token")
+
+                result = commit_and_push_to_github(repo_url, branch_name, files, commit_message, github_token)
 
                 tool_parts.append(
                     types.Part.from_function_response(

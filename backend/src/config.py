@@ -15,3 +15,7 @@ try:
     client = genai.Client(api_key=API_KEY)
 except Exception as e:
     raise ValueError(f"Failed to initialize Gemini client: {e}")
+
+# GitHub Configuration
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', None)
+GITHUB_DEFAULT_BRANCH = os.getenv('GITHUB_DEFAULT_BRANCH', 'main')
