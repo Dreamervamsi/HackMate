@@ -198,8 +198,10 @@ class GitHubBranchResponse(BaseModel):
     success: bool = Field(..., description="Whether branch creation succeeded")
     branch_name: str = Field(..., description="Name of the created branch")
     branch_url: Optional[str] = Field(None, description="URL of the created branch")
+    base_branch_used: Optional[str] = Field(None, description="The base branch that was actually used")
     error: Optional[str] = Field(None, description="Error message if creation failed")
     message: str = Field(..., description="Operation status message")
+    attempted_branches: Optional[List[str]] = Field(None, description="List of branches that were attempted")
 
 
 class GitHubCommitResponse(BaseModel):
@@ -210,3 +212,4 @@ class GitHubCommitResponse(BaseModel):
     files_committed: List[str] = Field(default_factory=list, description="List of committed file paths")
     error: Optional[str] = Field(None, description="Error message if operation failed")
     message: str = Field(..., description="Operation status message")
+    available_branches: Optional[List[str]] = Field(None, description="List of available branches if target branch not found")

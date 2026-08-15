@@ -1,5 +1,5 @@
 from google.genai import types
-from config import client, MODEL_NAME, GITHUB_TOKEN, GITHUB_DEFAULT_BRANCH
+from config import client, MODEL_NAME, GITHUB_TOKEN, GITHUB_DEFAULT_BRANCH, rate_limit_decorator
 import subprocess
 import json
 import re
@@ -9,6 +9,7 @@ from github import Github, GithubException
 active_agents = {}
 
 """ Create agent function"""
+@rate_limit_decorator
 def create_agent(agent_name: str, description: str, system_instruction: str):
     print("Creating agent...")
     if client is None:
@@ -34,6 +35,7 @@ def create_agent(agent_name: str, description: str, system_instruction: str):
     }
 
 # generate agent plan function
+@rate_limit_decorator
 def generate_agent_plan(agent_name: str, instruction_prompt: str):
     if agent_name not in active_agents:
         return {"error": f"Agent '{agent_name}' does not exist."}
@@ -90,6 +92,7 @@ def build_conflict_checker_instruction(task_prompt: str, implementation_plans: l
     }}
     """
 
+@rate_limit_decorator
 def check_agent_plan_conflict(task_prompt: str, implementation_plan: str):
     try:
         agent_name = "conflict_checker"
@@ -197,6 +200,7 @@ def conflict_resolver(task_prompt: str, summary: str, conflicts: list):
         return {"success": False, "error": str(e)}
 
 # plan implementation function
+@rate_limit_decorator
 def implement_plan(agent_name: str, implementation_plan: str):
     print("Implementing plan for agent...")
     if agent_name not in active_agents:
@@ -307,6 +311,7 @@ def build_bug_resolver_instruction(code: str, test_results: str) -> str:
     RETURN ONLY the fixed code, no additional text.
     """
 
+@rate_limit_decorator
 def resolve_bug(code: str, test_results: str):
     try:
         agent_name = "bug_resolver"
@@ -370,6 +375,7 @@ def build_test_generation_instruction(code: str, language: str = "python") -> st
     RETURN ONLY the test code, no additional text.
     """
 
+@rate_limit_decorator
 def generate_tests(code: str, language: str = "python"):
     try:
         agent_name = "test_generator"
@@ -568,7 +574,9 @@ def create_github_branch(repo_url: str, branch_name: str, base_branch: str = Non
                 "success": False,
                 "branch_name": branch_name,
                 "error": "GitHub token not provided. Please set GITHUB_TOKEN in config or provide it in the request.",
-                "message": "Authentication failed"
+                "message": "Authentication failed",
+                "base_branch_used": None,
+                "attempted_branches": []
             }
         
         # Parse repository URL
@@ -578,35 +586,76 @@ def create_github_branch(repo_url: str, branch_name: str, base_branch: str = Non
         g = Github(token)
         repo = g.get_repo(f"{owner}/{repo_name}")
         
-        # Get base branch (default to main or configured default)
+        # Get base branch - try multiple strategies
         base_branch_name = base_branch or GITHUB_DEFAULT_BRANCH or 'main'
         
-        # Get the base branch
-        try:
-            base_branch = repo.get_branch(base_branch_name)
-        except GithubException as e:
+        # Get the base branch with fallback to common branch names
+        base_branch_obj = None
+        attempted_branches = [base_branch_name]
+        
+        # If no specific base branch provided, try to auto-detect
+        if not base_branch:
+            # Try repository's default branch first
+            try:
+                base_branch_obj = repo.get_branch(repo.default_branch)
+                base_branch_name = repo.default_branch
+                print(f"Using repository default branch: {base_branch_name}")
+            except GithubException:
+                # Try common branch names
+                common_branches = ['main', 'master', 'develop']
+                for branch in common_branches:
+                    try:
+                        base_branch_obj = repo.get_branch(branch)
+                        base_branch_name = branch
+                        print(f"Found fallback branch: {base_branch_name}")
+                        break
+                    except GithubException:
+                        attempted_branches.append(branch)
+                        continue
+        else:
+            # Use the specified base branch
+            try:
+                base_branch_obj = repo.get_branch(base_branch_name)
+            except GithubException as e:
+                # If specified branch not found, try common alternatives
+                common_branches = ['main', 'master', 'develop']
+                for branch in common_branches:
+                    if branch != base_branch_name:
+                        try:
+                            base_branch_obj = repo.get_branch(branch)
+                            base_branch_name = branch
+                            print(f"Specified branch '{base_branch}' not found, using '{branch}' instead")
+                            break
+                        except GithubException:
+                            attempted_branches.append(branch)
+                            continue
+        
+        if not base_branch_obj:
             return {
                 "success": False,
                 "branch_name": branch_name,
-                "error": f"Base branch '{base_branch_name}' not found: {str(e)}",
-                "message": "Base branch not found"
+                "error": f"Could not find any valid base branch. Tried: {', '.join(set(attempted_branches))}",
+                "message": "Base branch not found",
+                "attempted_branches": list(set(attempted_branches)),
+                "base_branch_used": None
             }
         
         # Create new branch
         repo.create_git_ref(
             ref=f"refs/heads/{branch_name}",
-            sha=base_branch.commit.sha
+            sha=base_branch_obj.commit.sha
         )
         
         branch_url = f"https://github.com/{owner}/{repo_name}/tree/{branch_name}"
         
-        print(f"Successfully created branch '{branch_name}' in {owner}/{repo_name}")
+        print(f"Successfully created branch '{branch_name}' from '{base_branch_name}' in {owner}/{repo_name}")
         
         return {
             "success": True,
             "branch_name": branch_name,
             "branch_url": branch_url,
-            "message": f"Branch '{branch_name}' created successfully"
+            "base_branch_used": base_branch_name,
+            "message": f"Branch '{branch_name}' created successfully from '{base_branch_name}'"
         }
         
     except ValueError as e:
@@ -614,21 +663,24 @@ def create_github_branch(repo_url: str, branch_name: str, base_branch: str = Non
             "success": False,
             "branch_name": branch_name,
             "error": str(e),
-            "message": "Invalid repository URL"
+            "message": "Invalid repository URL",
+            "base_branch_used": None
         }
     except GithubException as e:
         return {
             "success": False,
             "branch_name": branch_name,
             "error": f"GitHub API error: {str(e)}",
-            "message": "GitHub operation failed"
+            "message": "GitHub operation failed",
+            "base_branch_used": None
         }
     except Exception as e:
         return {
             "success": False,
             "branch_name": branch_name,
             "error": f"Unexpected error: {str(e)}",
-            "message": "Operation failed"
+            "message": "Operation failed",
+            "base_branch_used": None
         }
 
 def commit_and_push_to_github(repo_url: str, branch_name: str, files: dict, commit_message: str, github_token: str = None):
@@ -641,7 +693,9 @@ def commit_and_push_to_github(repo_url: str, branch_name: str, files: dict, comm
                 "success": False,
                 "branch_name": branch_name,
                 "error": "GitHub token not provided. Please set GITHUB_TOKEN in config or provide it in the request.",
-                "message": "Authentication failed"
+                "message": "Authentication failed",
+                "available_branches": [],
+                "files_committed": []
             }
         
         # Parse repository URL
@@ -651,15 +705,31 @@ def commit_and_push_to_github(repo_url: str, branch_name: str, files: dict, comm
         g = Github(token)
         repo = g.get_repo(f"{owner}/{repo_name}")
         
-        # Get the branch
+        # Get the branch with better error handling
         try:
             branch = repo.get_branch(branch_name)
         except GithubException as e:
+            # Provide more helpful error message
+            available_branches = []
+            try:
+                branches = repo.get_branches()
+                available_branches = [b.name for b in branches]
+            except:
+                pass
+            
+            error_msg = f"Branch '{branch_name}' not found"
+            if available_branches:
+                error_msg += f". Available branches: {', '.join(available_branches[:5])}"
+                if len(available_branches) > 5:
+                    error_msg += f" and {len(available_branches) - 5} more"
+            
             return {
                 "success": False,
                 "branch_name": branch_name,
-                "error": f"Branch '{branch_name}' not found: {str(e)}",
-                "message": "Branch not found"
+                "error": error_msg,
+                "message": "Branch not found",
+                "available_branches": available_branches[:10] if available_branches else [],
+                "files_committed": []
             }
         
         # Create or update files
@@ -698,7 +768,8 @@ def commit_and_push_to_github(repo_url: str, branch_name: str, files: dict, comm
                 "success": False,
                 "branch_name": branch_name,
                 "error": "No files were committed",
-                "message": "Commit operation failed"
+                "message": "Commit operation failed",
+                "available_branches": []
             }
         
         # Get the latest commit SHA
@@ -713,7 +784,8 @@ def commit_and_push_to_github(repo_url: str, branch_name: str, files: dict, comm
             "commit_sha": commit_sha,
             "branch_url": branch_url,
             "files_committed": files_committed,
-            "message": f"Successfully committed {len(files_committed)} files"
+            "message": f"Successfully committed {len(files_committed)} files",
+            "available_branches": []
         }
         
     except ValueError as e:
@@ -721,19 +793,22 @@ def commit_and_push_to_github(repo_url: str, branch_name: str, files: dict, comm
             "success": False,
             "branch_name": branch_name,
             "error": str(e),
-            "message": "Invalid repository URL"
+            "message": "Invalid repository URL",
+            "available_branches": []
         }
     except GithubException as e:
         return {
             "success": False,
             "branch_name": branch_name,
             "error": f"GitHub API error: {str(e)}",
-            "message": "GitHub operation failed"
+            "message": "GitHub operation failed",
+            "available_branches": []
         }
     except Exception as e:
         return {
             "success": False,
             "branch_name": branch_name,
             "error": f"Unexpected error: {str(e)}",
-            "message": "Operation failed"
+            "message": "Operation failed",
+            "available_branches": []
         }

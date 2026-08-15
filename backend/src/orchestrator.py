@@ -1,5 +1,5 @@
 from google.genai import types
-from config import client, MODEL_NAME
+from config import client, MODEL_NAME, rate_limit_decorator
 from agents import (
         create_agent,
         generate_agent_plan,
@@ -10,6 +10,7 @@ from agents import (
 )
 from tool_calls import conflict_checker
 
+@rate_limit_decorator
 def orchestrate_agent(user_prompt):
     orchestrator_config = types.GenerateContentConfig(
         system_instruction="""
@@ -51,6 +52,9 @@ def orchestrate_agent(user_prompt):
         tool_parts = []
 
         for call in orchestrator_res.function_calls:
+            # Add rate limiting for each function call
+            import time
+            time.sleep(1.0)  # Add 1 second delay between function calls
             if call.name == "create_agent":
                 agent_name = call.args.get("agent_name")
                 description = call.args.get("description")

@@ -179,6 +179,16 @@ async def orchestrate_endpoint(request: OrchestrationRequest):
         )
     except Exception as e:
         execution_time = time.time() - start_time
+        error_str = str(e)
+        
+        # Handle rate limit errors specifically
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+            logger.error(f"Rate limit error after {execution_time:.2f}s: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="API rate limit exceeded. Please wait a moment and try again. The free tier has limited quota."
+            )
+        
         logger.error(f"Orchestration error after {execution_time:.2f}s: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

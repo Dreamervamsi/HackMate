@@ -1,7 +1,5 @@
 google-genai
 python-dotenv
-fastapi
 uvicorn
-pydantic
-python-multipart
+fastapi
 PyGithub
