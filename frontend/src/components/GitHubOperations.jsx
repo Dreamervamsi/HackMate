@@ -88,6 +88,7 @@ const GitHubOperations = ({ config }) => {
   };
 
   const isConfigValid = config.githubToken && config.repoUrl;
+  const isRepoUrlMissing = !config.repoUrl;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
@@ -95,11 +96,31 @@ const GitHubOperations = ({ config }) => {
         GitHub Operations
       </h3>
 
-      {!isConfigValid && (
+      {isRepoUrlMissing && (
+        <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 
+                     rounded-md p-4 mb-4">
+          <div className="flex items-start">
+            <span className="text-2xl mr-3">🚫</span>
+            <div>
+              <p className="text-sm font-bold text-red-800 dark:text-red-200 mb-2">
+                GitHub Repository URL Required
+              </p>
+              <p className="text-sm text-red-700 dark:text-red-300 mb-2">
+                Please paste your GitHub repository URL in the configuration section above to enable GitHub operations.
+              </p>
+              <p className="text-xs text-red-600 dark:text-red-400">
+                The repository URL is required for creating branches and pushing code to GitHub.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isRepoUrlMissing && !config.githubToken && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 
                      rounded-md p-3 mb-4">
           <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            ⚠️ Please complete GitHub configuration to use these operations
+            ⚠️ Please add your GitHub Personal Access Token to complete the configuration
           </p>
         </div>
       )}
@@ -113,7 +134,7 @@ const GitHubOperations = ({ config }) => {
               ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
           }`}
-          disabled={!isConfigValid}
+          disabled={isRepoUrlMissing}
         >
           Create Branch
         </button>
@@ -124,7 +145,7 @@ const GitHubOperations = ({ config }) => {
               ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
           }`}
-          disabled={!isConfigValid}
+          disabled={isRepoUrlMissing}
         >
           Commit & Push
         </button>
@@ -143,7 +164,7 @@ const GitHubOperations = ({ config }) => {
               onChange={(e) => setBranchName(e.target.value)}
               placeholder="feature/my-new-feature"
               required
-              disabled={!isConfigValid || isLoading}
+              disabled={isRepoUrlMissing || isLoading}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -160,7 +181,7 @@ const GitHubOperations = ({ config }) => {
               value={baseBranch}
               onChange={(e) => setBaseBranch(e.target.value)}
               placeholder="main"
-              disabled={!isConfigValid || isLoading}
+              disabled={isRepoUrlMissing || isLoading}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -170,7 +191,7 @@ const GitHubOperations = ({ config }) => {
 
           <button
             type="submit"
-            disabled={!isConfigValid || isLoading || !branchName}
+            disabled={isRepoUrlMissing || isLoading || !branchName}
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 
                      disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -192,7 +213,7 @@ const GitHubOperations = ({ config }) => {
               onChange={(e) => setCommitBranch(e.target.value)}
               placeholder="feature/my-new-feature"
               required
-              disabled={!isConfigValid || isLoading}
+              disabled={isRepoUrlMissing || isLoading}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -210,7 +231,7 @@ const GitHubOperations = ({ config }) => {
               onChange={(e) => setFilePath(e.target.value)}
               placeholder="src/example.py"
               required
-              disabled={!isConfigValid || isLoading}
+              disabled={isRepoUrlMissing || isLoading}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -227,7 +248,7 @@ const GitHubOperations = ({ config }) => {
               onChange={(e) => setFileContent(e.target.value)}
               placeholder="# Your code here"
               required
-              disabled={!isConfigValid || isLoading}
+              disabled={isRepoUrlMissing || isLoading}
               rows={6}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
@@ -246,7 +267,7 @@ const GitHubOperations = ({ config }) => {
               onChange={(e) => setCommitMessage(e.target.value)}
               placeholder="Add new feature"
               required
-              disabled={!isConfigValid || isLoading}
+              disabled={isRepoUrlMissing || isLoading}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -256,7 +277,7 @@ const GitHubOperations = ({ config }) => {
 
           <button
             type="submit"
-            disabled={!isConfigValid || isLoading || !commitBranch || !filePath || !fileContent || !commitMessage}
+            disabled={isRepoUrlMissing || isLoading || !commitBranch || !filePath || !fileContent || !commitMessage}
             className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 
                      disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
