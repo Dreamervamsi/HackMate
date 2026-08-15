@@ -9,7 +9,7 @@ const GitHubOperations = ({ config }) => {
 
   // Branch creation state
   const [branchName, setBranchName] = useState('');
-  const [baseBranch, setBaseBranch] = useState(config.defaultBranch || 'main');
+  const [baseBranch, setBaseBranch] = useState(''); // Empty for auto-detection
 
   // Commit state
   const [commitBranch, setCommitBranch] = useState('');
@@ -27,7 +27,7 @@ const GitHubOperations = ({ config }) => {
       const response = await orchestratorAPI.createGitHubBranch(
         config.repoUrl,
         branchName,
-        baseBranch,
+        baseBranch || null, // Send null if empty to trigger auto-detection
         config.githubToken
       );
       
@@ -180,13 +180,16 @@ const GitHubOperations = ({ config }) => {
               type="text"
               value={baseBranch}
               onChange={(e) => setBaseBranch(e.target.value)}
-              placeholder="main"
+              placeholder="Leave empty for auto-detection (main/master)"
               disabled={isRepoUrlMissing || isLoading}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
                        disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Leave empty to auto-detect from repository (tries main, master, develop)
+            </p>
           </div>
 
           <button
@@ -299,7 +302,7 @@ const GitHubOperations = ({ config }) => {
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {result.message}
               </p>
-              {result.data && result.success && result.data.branch_url && (
+              {result.success && result.data && result.data.branch_url && (
                 <a 
                   href={result.data.branch_url} 
                   target="_blank" 
@@ -309,10 +312,32 @@ const GitHubOperations = ({ config }) => {
                   View Branch →
                 </a>
               )}
-              {result.data && result.success && result.data.files_committed && (
+              {result.success && result.data && result.data.base_branch_used && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Created from: {result.data.base_branch_used}
+                </p>
+              )}
+              {result.success && result.data && result.data.files_committed && (
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                   Files committed: {result.data.files_committed.join(', ')}
                 </p>
+              )}
+              {!result.success && result.data && result.data.attempted_branches && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Tried branches: {result.data.attempted_branches.join(', ')}
+                </p>
+              )}
+              {!result.success && result.data && result.data.available_branches && result.data.available_branches.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Available branches:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {result.data.available_branches.map(branch => (
+                      <span key={branch} className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
+                        {branch}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>
