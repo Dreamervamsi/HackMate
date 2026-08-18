@@ -1,4 +1,4 @@
-from google import genai
+from groq import Groq
 import os
 import time
 from dotenv import load_dotenv
@@ -7,16 +7,36 @@ from functools import wraps
 load_dotenv()
 
 # Configuration
-MODEL_NAME = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
-API_KEY = os.getenv('GEMINI_API_KEY')
+MODEL_NAME = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+API_KEY = os.getenv('GROQ_API_KEY')
 
 if not API_KEY:
-    raise ValueError("GEMINI_API_KEY environment variable is not set. Please set it in your .env file.")
+    raise ValueError("GROQ_API_KEY environment variable is not set. Please set it in your .env file.")
 
 try:
-    client = genai.Client(api_key=API_KEY)
+    client = Groq(api_key=API_KEY)
 except Exception as e:
-    raise ValueError(f"Failed to initialize Gemini client: {e}")
+    raise ValueError(f"Failed to initialize Groq client: {e}")
+
+# Chat history management for agents
+chat_histories = {}
+
+def get_chat_history(agent_name: str) -> list:
+    """Get chat history for a specific agent"""
+    if agent_name not in chat_histories:
+        chat_histories[agent_name] = []
+    return chat_histories[agent_name]
+
+def add_to_chat_history(agent_name: str, role: str, content: str):
+    """Add a message to the chat history for a specific agent"""
+    if agent_name not in chat_histories:
+        chat_histories[agent_name] = []
+    chat_histories[agent_name].append({"role": role, "content": content})
+
+def clear_chat_history(agent_name: str):
+    """Clear chat history for a specific agent"""
+    if agent_name in chat_histories:
+        chat_histories[agent_name] = []
 
 # GitHub Configuration
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', None)
