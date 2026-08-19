@@ -84,7 +84,7 @@ app.add_middleware(ErrorHandlingMiddleware)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],  # Allow all origins for now, restrict to specific frontend domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
