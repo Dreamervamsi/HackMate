@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { Message } from "@/types/chat";
+import type { Message } from "@/types/chat";
 
 interface MessageProps {
   message: Message;
@@ -24,9 +24,10 @@ export default function Message({ message }: MessageProps) {
               rehypePlugins={[rehypeHighlight]}
               components={{
                 // Custom code block styling
-                code({ node, inline, className, children, ...props }) {
+                code({ className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || "");
-                  return !inline ? (
+                  const isInline = !match;
+                  return !isInline ? (
                     <code
                       className={`block bg-gray-100 rounded-lg p-4 text-sm overflow-x-auto ${className || ""}`}
                       {...props}
