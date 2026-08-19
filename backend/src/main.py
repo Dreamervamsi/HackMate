@@ -146,14 +146,16 @@ async def orchestrate_endpoint(request: OrchestrationRequest):
     
     try:
         user_prompt = request.user_prompt
+        conversation_history = request.conversation_history
         context = request.context or {}
         priority = request.priority
         
         logger.info(f"Received orchestration request (priority: {priority}): {user_prompt[:100]}...")
         logger.info(f"Additional context: {context}")
+        logger.info(f"Conversation history length: {len(conversation_history) if conversation_history else 0}")
         
         # Process the orchestration
-        result = orchestrate_agent(user_prompt)
+        result = orchestrate_agent(user_prompt, conversation_history, context)
         
         execution_time = time.time() - start_time
         logger.info(f"Orchestration completed successfully in {execution_time:.2f}s")

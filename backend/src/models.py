@@ -19,6 +19,10 @@ class OrchestrationRequest(BaseModel):
         min_length=1,
         max_length=10000
     )
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description="Previous conversation messages for context"
+    )
     context: Optional[Dict[str, Any]] = Field(
         None,
         description="Additional context for the orchestration task"
