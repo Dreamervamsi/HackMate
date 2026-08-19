@@ -55,23 +55,9 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
         <button
           onClick={handleSubmit}
           disabled={!input.trim() || disabled}
-          className="ml-3 p-2 rounded-lg mr-[20px] bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+          className="ml-1 p-2 rounded-lg  bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
           aria-label="Send message"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-gray-600"
-          >
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
         </button>
       </div>
       <p className="text-center text-xs text-gray-400 mt-2">

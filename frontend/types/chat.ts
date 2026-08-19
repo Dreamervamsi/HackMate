@@ -9,6 +9,7 @@ export interface Message {
 
 export interface OrchestrationRequest {
   user_prompt: string;
+  conversation_history?: Message[];
   context?: Record<string, any>;
   priority?: "low" | "normal" | "high" | "urgent";
 }

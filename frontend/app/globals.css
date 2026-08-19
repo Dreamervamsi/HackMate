@@ -10,6 +10,9 @@
   --user-message-bg: #f3f4f6;
   --code-bg: #f8f9fa;
 }
+body{
+  overflow: hidden;
+}
 
 @theme inline {
   --color-background: var(--background);

@@ -1,14 +1,16 @@
-import { OrchestrationRequest, OrchestrationResponse, ApiError } from "@/types/chat";
+import { OrchestrationRequest, OrchestrationResponse, ApiError, Message } from "@/types/chat";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function sendChatMessage(
   userPrompt: string,
+  conversationHistory?: Message[],
   context?: Record<string, any>,
   priority?: "low" | "normal" | "high" | "urgent"
 ): Promise<OrchestrationResponse> {
   const request: OrchestrationRequest = {
     user_prompt: userPrompt,
+    conversation_history: conversationHistory,
     context,
     priority: priority || "normal",
   };

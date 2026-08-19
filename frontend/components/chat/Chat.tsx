@@ -9,12 +9,15 @@ import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
 import LoadingMessage from "./LoadingMessage";
 import ErrorMessage from "./ErrorMessage";
+import Sidebar from "./Sidebar";
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
+  const [githubToken, setGithubToken] = useState<string>("");
+  const [githubRepo, setGithubRepo] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -24,6 +27,11 @@ export default function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  const handleCredentialsChange = (token: string, repo: string) => {
+    setGithubToken(token);
+    setGithubRepo(repo);
+  };
 
   const handleSendMessage = async (content: string) => {
     if (isLoading) return;
@@ -41,7 +49,14 @@ export default function Chat() {
     setError(null);
 
     try {
-      const response = await sendChatMessage(content);
+      const response = await sendChatMessage(
+        content,
+        messages,
+        {
+          github_token: githubToken,
+          github_repo: githubRepo,
+        }
+      );
 
       if (response.status === "success" && response.result) {
         const assistantMessage: Message = {
@@ -71,23 +86,27 @@ export default function Chat() {
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <ChatHeader />
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar onCredentialsChange={handleCredentialsChange} />
       
-      <div className="flex-1 overflow-hidden">
-        {!hasMessages && !isLoading ? (
-          <EmptyState />
-        ) : (
-          <div className="h-full overflow-y-auto">
-            <MessageList messages={messages} />
-            {isLoading && <LoadingMessage />}
-            {error && <ErrorMessage error={error} onRetry={handleRetry} />}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </div>
+      <div className="flex-1 flex flex-col">
+        <ChatHeader />
+        
+        <div className="flex-1 overflow-hidden">
+          {!hasMessages && !isLoading ? (
+            <EmptyState />
+          ) : (
+            <div className="h-full overflow-y-auto">
+              <MessageList messages={messages} />
+              {isLoading && <LoadingMessage />}
+              {error && <ErrorMessage error={error} onRetry={handleRetry} />}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
 
-      <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+      </div>
     </div>
   );
 }
