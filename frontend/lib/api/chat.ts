@@ -1,6 +1,6 @@
 import { OrchestrationRequest, OrchestrationResponse, ApiError, Message } from "@/types/chat";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://hackmate-c60k.onrender.com";
 
 export async function sendChatMessage(
   userPrompt: string,
