@@ -48,19 +48,19 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
           onKeyDown={handleKeyDown}
           placeholder="Ask HackMate..."
           disabled={disabled}
-          className="flex-1 resize-none bg-transparent text-gray-800 placeholder-gray-400 focus:outline-none min-h-[80px] max-h-[300px] px-3 py-3 text-base"
-          rows={3}
+          className="flex-1 resize-none bg-transparent text-gray-800 placeholder-gray-400 focus:outline-none min-w-[900px] min-h-[80px] max-h-[300px] px-3 py-3 text-base"
+          rows={2}
           aria-label="Chat input"
         />
         <button
           onClick={handleSubmit}
           disabled={!input.trim() || disabled}
-          className="ml-3 p-3 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="ml-3 p-2 rounded-lg mr-[20px] bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
           aria-label="Send message"
         >
           <svg
-            width="24"
-            height="24"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -69,8 +69,8 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
             strokeLinejoin="round"
             className="text-gray-600"
           >
-            <path d="M12 19V5" />
-            <path d="M5 12l7-7 7 7" />
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
           </svg>
         </button>
       </div>
